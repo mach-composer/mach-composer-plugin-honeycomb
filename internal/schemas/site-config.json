@@ -1,0 +1,9 @@
+{
+    "type": "object",
+    "description": "Site Honeycomb configuration.",
+    "properties": {
+        "api_key": {
+            "type": "string"
+        }
+    }
+}

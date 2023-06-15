@@ -1,0 +1,9 @@
+{
+    "type": "object",
+    "description": "Global Honeycomb configuration.",
+    "properties": {
+        "api_key": {
+            "type": "string"
+        }
+    }
+}
