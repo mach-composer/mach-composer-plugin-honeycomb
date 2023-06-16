@@ -3,7 +3,7 @@
 This repository contains the Honeycomb plugin for Mach Composer. It requires MACH
 composer >= 2.5.x
 
-This plugin uses the (Honeycomb Terraform Provider)[https://github.com/honeycombio/terraform-provider-honeycombio]
+This plugin uses the [Honeycomb Terraform Provider](https://github.com/honeycombio/terraform-provider-honeycombio)
 
 
 
