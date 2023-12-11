@@ -131,7 +131,11 @@ func (p *HoneycombPlugin) RenderTerraformComponent(site string, _ string) (*sche
 		return nil, nil
 	}
 
-	template := ``
+	template := `
+		honeycomb = {
+			{{ renderProperty "api_key" .ApiKey }}
+		}
+	`
 
 	vars, err := helpers.RenderGoTemplate(template, cfg)
 	if err != nil {
