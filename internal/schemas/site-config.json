@@ -1,9 +1,18 @@
 {
-    "type": "object",
-    "description": "Site Honeycomb configuration.",
-    "properties": {
-        "api_key": {
-            "type": "string"
-        }
+  "type": "object",
+  "description": "Site Honeycomb configuration.",
+  "properties": {
+    "api_key": {
+      "type": "string"
+    },
+    "dataset": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
     }
+  }
 }

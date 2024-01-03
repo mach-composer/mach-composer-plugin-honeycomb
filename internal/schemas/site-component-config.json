@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "description": "Global Honeycomb configuration.",
+  "description": "Site Component Honeycomb configuration.",
   "properties": {
     "api_key": {
       "type": "string"
