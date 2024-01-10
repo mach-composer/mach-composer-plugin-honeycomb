@@ -1,0 +1,14 @@
+{{ if .Config.TrackDeployments }}
+    resource "honeycombio_marker" "{{ .ComponentName }}" {
+    dataset = "{{ .Config.DataSet }}"
+    message = "{{ .Version }}"
+    {{ if .Config.Type }}
+        type = "{{ .Config.Type }}"
+    {{ end }}
+    {{ if .Config.Url }}
+        url = "{{ .Config.Url }}"
+    {{ end }}
+
+    depends_on   = [module.{{ .ComponentName }}]
+    }
+{{ end}}
