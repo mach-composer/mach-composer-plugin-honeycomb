@@ -1,8 +1,5 @@
 project_name: mach-composer-plugin-honeycomb
 
-env:
-  - PRERELEASE={{ if index .Env "PRERELEASE"  }}{{ .Env.PRERELEASE }}{{ else }}false{{ end }}
-
 builds:
   - id: "mach-composer-plugin"
     main: ./main.go
@@ -29,7 +26,7 @@ checksum:
 
 release:
   mode: replace
-  prerelease: "{{ .Env.PRERELEASE }}"
+  prerelease: auto
 
 changelog:
   sort: asc
