@@ -1,5 +1,8 @@
 project_name: mach-composer-plugin-honeycomb
 
+env:
+  - PRERELEASE={{ if index .Env "PRERELEASE"  }}{{ .Env.PRERELEASE }}{{ else }}false{{ end }}
+
 builds:
   - id: "mach-composer-plugin"
     main: ./main.go
@@ -23,6 +26,10 @@ builds:
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
+
+release:
+  mode: replace
+  prerelease: "{{ .Env.PRERELEASE }}"
 
 changelog:
   sort: asc

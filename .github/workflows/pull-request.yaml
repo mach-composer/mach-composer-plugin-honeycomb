@@ -1,0 +1,46 @@
+name: Run Tests
+
+on: [ pull_request ]
+
+jobs:
+
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Go modules cache
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-go-modules
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go${{ matrix.go-version }}-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go${{ matrix.go-version }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-go${{ matrix.go-version }}-build-
+            ${{ runner.os }}-go${{ matrix.go-version }}-
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          args: --issues-exit-code=0
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Build binary
+        uses: goreleaser/goreleaser-action@v3
+        with:
+          args: build --snapshot --clean --single-target
+        env:
+          GOPATH: ${{ env.GOPATH }}
