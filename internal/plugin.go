@@ -1,41 +1,77 @@
 package internal
 
 import (
+	"embed"
 	"fmt"
 
 	"github.com/mach-composer/mach-composer-plugin-helpers/helpers"
-	"github.com/mach-composer/mach-composer-plugin-sdk/plugin"
-	"github.com/mach-composer/mach-composer-plugin-sdk/schema"
+	"github.com/mach-composer/mach-composer-plugin-sdk/v2/plugin"
+	"github.com/mach-composer/mach-composer-plugin-sdk/v2/schema"
 	"github.com/mitchellh/mapstructure"
 )
 
+//go:embed templates/*
+var templates embed.FS
+
 type HoneycombPlugin struct {
-	provider     string
-	environment  string
-	globalConfig *HoneycombConfig
-	siteConfigs  map[string]*HoneycombConfig
-	enabled      bool
+	provider         string
+	environment      string
+	globalConfig     *GlobalConfig
+	siteConfigs      map[string]*SiteConfig
+	componentConfigs map[string]*ComponentConfig
 }
 
 func NewHoneycombPlugin() schema.MachComposerPlugin {
 	state := &HoneycombPlugin{
-		provider:    "0.18.1", // Provider version of `honeycombio/honeycombio`
-		siteConfigs: map[string]*HoneycombConfig{},
+		provider:         "0.18.1", // Provider version of `honeycombio/honeycombio`
+		siteConfigs:      map[string]*SiteConfig{},
+		componentConfigs: map[string]*ComponentConfig{},
 	}
 	return plugin.NewPlugin(&schema.PluginSchema{
 		Identifier:          "honeycomb",
 		Configure:           state.Configure,
-		IsEnabled:           func() bool { return state.enabled },
 		GetValidationSchema: state.GetValidationSchema,
 
-		SetGlobalConfig: state.SetGlobalConfig,
-		SetSiteConfig:   state.SetSiteConfig,
+		SetGlobalConfig:        state.SetGlobalConfig,
+		SetSiteConfig:          state.SetSiteConfig,
+		SetComponentConfig:     state.SetComponentConfig,
+		SetSiteComponentConfig: state.SetSiteComponentConfig,
 
 		// Renders
 		RenderTerraformProviders: state.RenderTerraformProviders,
 		RenderTerraformResources: state.RenderTerraformResources,
 		RenderTerraformComponent: state.RenderTerraformComponent,
 	})
+}
+
+func (p *HoneycombPlugin) getSiteConfig(site string) *SiteConfig {
+	cfg, ok := p.siteConfigs[site]
+	if !ok {
+		cfg = &SiteConfig{}
+	}
+	return cfg.extendGlobalConfig(p.globalConfig)
+}
+
+func (p *HoneycombPlugin) getSiteComponentConfig(site, name string) *SiteComponentConfig {
+	siteCfg := p.getSiteConfig(site)
+	if siteCfg == nil {
+		return nil
+	}
+
+	cfg, ok := siteCfg.SiteComponents[name]
+	if !ok {
+		cfg = &SiteComponentConfig{}
+	}
+
+	return cfg.extendSiteConfig(siteCfg)
+}
+
+func (p *HoneycombPlugin) getComponentConfig(component string) *ComponentConfig {
+	cfg, ok := p.componentConfigs[component]
+	if !ok {
+		cfg = &ComponentConfig{}
+	}
+	return cfg
 }
 
 func (p *HoneycombPlugin) Configure(environment string, provider string) error {
@@ -52,45 +88,56 @@ func (p *HoneycombPlugin) GetValidationSchema() (*schema.ValidationSchema, error
 }
 
 func (p *HoneycombPlugin) SetGlobalConfig(data map[string]any) error {
-	cfg := HoneycombConfig{}
+	cfg := GlobalConfig{}
 
 	if err := mapstructure.Decode(data, &cfg); err != nil {
 		return err
 	}
 	p.globalConfig = &cfg
-	p.enabled = true
 
 	return nil
 }
 
 func (p *HoneycombPlugin) SetSiteConfig(site string, data map[string]any) error {
-	cfg := HoneycombConfig{}
+	cfg := SiteConfig{
+		SiteComponents: map[string]*SiteComponentConfig{},
+	}
 	if err := mapstructure.Decode(data, &cfg); err != nil {
 		return err
 	}
 	p.siteConfigs[site] = &cfg
-	p.enabled = true
 	return nil
 }
 
-func (p *HoneycombPlugin) getSiteConfig(site string) *HoneycombConfig {
-	result := &HoneycombConfig{}
-	if p.globalConfig != nil {
-		result.ApiKey = p.globalConfig.ApiKey
+func (p *HoneycombPlugin) SetSiteComponentConfig(site string, component string, data map[string]any) error {
+	cfg := SiteComponentConfig{}
+	if err := mapstructure.Decode(data, &cfg); err != nil {
+		return err
 	}
 
-	cfg, ok := p.siteConfigs[site]
-	if ok {
-		if cfg.ApiKey != "" {
-			result.ApiKey = cfg.ApiKey
+	siteCfg, ok := p.siteConfigs[site]
+	if !ok {
+		siteCfg = &SiteConfig{
+			SiteComponents: map[string]*SiteComponentConfig{},
 		}
+		p.siteConfigs[site] = siteCfg
 	}
+	siteCfg.SiteComponents[component] = &cfg
 
-	return result
+	return nil
 }
 
-func (p *HoneycombPlugin) RenderTerraformStateBackend(_ string) (string, error) {
-	return "", nil
+func (p *HoneycombPlugin) SetComponentConfig(component, version string, data map[string]any) error {
+	cfg := ComponentConfig{
+		Version: version,
+	}
+	if err := mapstructure.Decode(data, &cfg); err != nil {
+		return err
+	}
+
+	p.componentConfigs[component] = &cfg
+
+	return nil
 }
 
 func (p *HoneycombPlugin) RenderTerraformProviders(site string) (string, error) {
@@ -125,12 +172,33 @@ func (p *HoneycombPlugin) RenderTerraformResources(site string) (string, error) 
 	return helpers.RenderGoTemplate(template, cfg)
 }
 
-func (p *HoneycombPlugin) RenderTerraformComponent(site string, _ string) (*schema.ComponentSchema, error) {
-	cfg := p.getSiteConfig(site)
+func (p *HoneycombPlugin) RenderTerraformComponent(site string, component string) (*schema.ComponentSchema, error) {
+	cfg := p.getSiteComponentConfig(site, component)
 	if cfg == nil {
 		return nil, nil
 	}
 
+	componentConfig := p.getComponentConfig(component)
+
+	vars, err := terraformRenderVariables(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	resources, err := terraformRenderComponentResources(component, componentConfig.Version, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &schema.ComponentSchema{
+		Variables: vars,
+		Resources: resources,
+	}
+
+	return result, nil
+}
+
+func terraformRenderVariables(cfg *SiteComponentConfig) (string, error) {
 	template := `
 		honeycomb = {
 			{{ renderProperty "api_key" .ApiKey }}
@@ -139,12 +207,27 @@ func (p *HoneycombPlugin) RenderTerraformComponent(site string, _ string) (*sche
 
 	vars, err := helpers.RenderGoTemplate(template, cfg)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	result := &schema.ComponentSchema{
-		Variables: vars,
+	return vars, nil
+}
+
+func terraformRenderComponentResources(component, version string, cfg *SiteComponentConfig) (string, error) {
+	templateContext := struct {
+		ComponentName string
+		Version       string
+		Config        *SiteComponentConfig
+	}{
+		ComponentName: component,
+		Version:       version,
+		Config:        cfg,
 	}
 
-	return result, nil
+	tpl, err := templates.ReadFile("templates/resources.tmpl")
+	if err != nil {
+		return "", err
+	}
+
+	return helpers.RenderGoTemplate(string(tpl), templateContext)
 }
