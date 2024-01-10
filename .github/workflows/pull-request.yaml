@@ -8,6 +8,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -24,11 +29,6 @@ jobs:
             ${{ runner.os }}-go${{ matrix.go-version }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-go${{ matrix.go-version }}-build-
             ${{ runner.os }}-go${{ matrix.go-version }}-
-
-      - name: Check out code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
