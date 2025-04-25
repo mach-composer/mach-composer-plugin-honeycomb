@@ -19,7 +19,7 @@ type HoneycombPlugin struct {
 
 func NewHoneycombPlugin() schema.MachComposerPlugin {
 	state := &HoneycombPlugin{
-		provider:    "0.18.1", // Provider version of `honeycombio/honeycombio`
+		provider:    "0.33.0", // Provider version of `honeycombio/honeycombio`
 		siteConfigs: map[string]*HoneycombConfig{},
 	}
 	return plugin.NewPlugin(&schema.PluginSchema{
