@@ -31,6 +31,3 @@ jobs:
           verify: true
           min_age: 7
           ignore_actions: |
-            stefanzweifel/git-auto-commit-action@v7-next
-            mach-composer/check-changie-changes-action@main
-            labd/action-gh-app-token@main
